@@ -108,10 +108,13 @@ class ServiceRegistry(HasTraits):
             return None
 
         # Is the registered service actually a service *factory*?
+        #
+        # fixme: We should have had an explicit way rto register a factory.
+        # This works *unless* you want to register an instance as the actual
+        # service object that happens to be callable (i.e. implements __call__).
         if callable(obj):
-            # A service factory is any callable that takes two arguments, the
-            # first is the protocol, the second is the (possibly empty)
-            # dictionary of properties that were registered with the service.
+            # A service factory is any callable that takes the (possibly empty)
+            # dictionary of properties as keyword arguments.
             #
             # If the factory is specified as a symbol path then import it.
             if isinstance(obj, basestring):
@@ -150,8 +153,8 @@ class ServiceRegistry(HasTraits):
         """ Return all services that match the specified query. """
 
         services = []
-        for service_id, (name, obj, properties) in self._services.items():
-            if self._get_protocol_name(protocol) == name:
+        for service_id, (protocol_name, obj, properties) in self._services.items():
+            if self._get_protocol_name(protocol) == protocol_name:
                 # If the protocol is a string then we need to import it!
                 if isinstance(protocol, basestring):
                     actual_protocol = ImportManager().import_symbol(protocol)
@@ -163,7 +166,7 @@ class ServiceRegistry(HasTraits):
                 # If the registered service is actually a factory then use it
                 # to create the actual object.
                 obj = self._resolve_factory(
-                    actual_protocol, name, obj, properties, service_id
+                    actual_protocol, protocol_name, obj, properties, service_id
                 )
 
                 # If a query was specified then only add the service if it
@@ -318,14 +321,15 @@ class ServiceRegistry(HasTraits):
 
         return self._service_id
 
-    def _resolve_factory(self, protocol, name, obj, properties, service_id):
+    def _resolve_factory(
+        self, protocol, protocol_name, obj, properties, service_id
+    ):
         """ If 'obj' is a factory then use it to create the actual service. """
 
         # Is the registered service actually a service *factory*?
         if self._is_service_factory(protocol, obj):
-            # A service factory is any callable that takes two arguments, the
-            # first is the protocol, the second is the (possibly empty)
-            # dictionary of properties that were registered with the service.
+            # A service factory is any callable that takes the (possibly empty)
+            # dictionary of properties as keyword arguments.
             #
             # If the factory is specified as a symbol path then import it.
             if isinstance(obj, basestring):
@@ -336,7 +340,7 @@ class ServiceRegistry(HasTraits):
             # The resulting service object replaces the factory in the cache
             # (i.e. the factory will not get called again unless it is
             # unregistered first).
-            self._services[service_id] = (name, obj, properties)
+            self._services[service_id] = (protocol_name, obj, properties)
 
         return obj
 
