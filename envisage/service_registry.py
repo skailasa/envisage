@@ -179,9 +179,6 @@ class ServiceRegistry(HasTraits):
 
         except KeyError:
             service_offer = self._get_named_service_offer_by_id(service_id)
-            if service_offer is None:
-                raise ValueError('no service with id <%d>' % service_id)
-
             name, (sid, obj, props) = service_offer
             properties = props.copy()
 
@@ -228,9 +225,6 @@ class ServiceRegistry(HasTraits):
 
         except KeyError:
             service_offer = self._get_named_service_offer_by_id(service_id)
-            if service_offer is None:
-                raise ValueError('no service with id <%d>' % service_id)
-
             name, (sid, obj, props) = service_offer
             self._named_services[name] = (sid, obj, properties)
 
@@ -245,10 +239,8 @@ class ServiceRegistry(HasTraits):
 
         except KeyError:
             service_offer = self._get_named_service_offer_by_id(service_id)
-            if service_offer is None:
-                raise ValueError('no service with id <%d>' % service_id)
+            name, offer   = service_offer
 
-            name, offer = service_offer
             del self._named_services[name]
             self.unregistered = service_id
 
@@ -301,7 +293,7 @@ class ServiceRegistry(HasTraits):
     def _get_named_service_offer_by_id(self, service_id):
         """ Return the named service offer with the given service Id.
 
-        Return None if no such service offer exists.
+        Raise a 'ValueError' if no such service exists.
 
         """
 
@@ -310,10 +302,10 @@ class ServiceRegistry(HasTraits):
                 service_offer = (name, (sid, obj, properties))
                 break
         else:
-            service_offer = None
+            raise ValueError('no service with id <%d>' % service_id)
 
         return service_offer
-        
+
     def _is_service_factory(self, protocol, obj):
         """ Is the object a factory for services supporting the protocol? """
 
