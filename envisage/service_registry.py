@@ -35,9 +35,9 @@ class ServiceRegistry(HasTraits):
 
     ####  Private interface ###################################################
 
-    # The *named* services in the registry.
+    # Service registered by *name*.
     #
-    # { name : (service_id, obj, properties) }
+    # { service_id : (name, obj, properties) }
     #
     # where:
     #
@@ -49,7 +49,7 @@ class ServiceRegistry(HasTraits):
     # registered with the object.
     _named_services = Dict
 
-    # The services in the registry.
+    # Services registered by *protocol*.
     #
     # { service_id : (protocol_name, obj, properties) }
     #
@@ -100,10 +100,12 @@ class ServiceRegistry(HasTraits):
     def get_service_by_name(self, name):
         """ Return the service with the given name. """
 
-        if not name in self._named_services:
-            return None
+        for service_id, (offer_name, obj, properties) in self._named_services.iteritems():
+            if offer_name == name:
+                break
 
-        service_id, obj, properties = self._named_services.get(name)
+        else:
+            return None
 
         # Is the registered service actually a service *factory*?
         if callable(obj):
@@ -120,20 +122,29 @@ class ServiceRegistry(HasTraits):
             # The resulting service object replaces the factory in the cache
             # (i.e. the factory will not get called again unless it is
             # unregistered first).
-            self._named_services[name] = (service_id, obj, properties)
+            self._named_services[service_id] = (name, obj, properties)
 
         return obj
 
-    def get_service_from_id(self, service_id):
+    def get_service_by_id(self, service_id):
         """ Return the service with the specified id. """
 
-        try:
+        if service_id in self._services:
             protocol, obj, properties = self._services[service_id]
 
-        except KeyError:
+        elif service_id in self._named_services:
+            name, obj, properties = self._named_services[service_id]
+
+        else:
             raise ValueError('no service with id <%d>' % service_id)
 
         return obj
+
+    # Deprecated: Use 'get_service_by_id'
+    def get_service_from_id(self, service_id):
+        """ Return the service with the specified id. """
+
+        return self.get_service_by_id(service_id)
 
     def get_services(self, protocol, query='', minimize='', maximize=''):
         """ Return all services that match the specified query. """
@@ -173,16 +184,16 @@ class ServiceRegistry(HasTraits):
     def get_service_properties(self, service_id):
         """ Return the dictionary of properties associated with a service. """
 
-        try:
+        if service_id in self._services:
             protocol, obj, properties = self._services[service_id]
-            properties = properties.copy()
 
-        except KeyError:
-            service_offer = self._get_named_service_offer_by_id(service_id)
-            name, (sid, obj, props) = service_offer
-            properties = props.copy()
+        elif service_id in self._named_services:
+            name, obj, properties = self._services[service_id]
 
-        return properties
+        else:
+            raise ValueError('no service with id <%d>' % service_id)
+            
+        return properties.copy()
 
     def register_service(self, protocol, obj, properties=None):
         """ Register a service. """
@@ -209,7 +220,7 @@ class ServiceRegistry(HasTraits):
             properties = {}
 
         service_id = self._next_service_id()
-        self._named_services[name] = (service_id, obj, properties)
+        self._named_services[service_id] = (name, obj, properties)
         self.registered = service_id
 
         logger.debug('service <%d> registered by name %s', service_id, name)
@@ -219,31 +230,32 @@ class ServiceRegistry(HasTraits):
     def set_service_properties(self, service_id, properties):
         """ Set the dictionary of properties associated with a service. """
 
-        try:
+        if service_id in self._services:
             protocol, obj, old_properties = self._services[service_id]
-            self._services[service_id] = protocol, obj, properties.copy()
+            self._services[service_id] = (protocol, obj, properties)
 
-        except KeyError:
-            service_offer = self._get_named_service_offer_by_id(service_id)
-            name, (sid, obj, props) = service_offer
-            self._named_services[name] = (sid, obj, properties)
+        elif service_id in self._named_services:
+            name, obj, old_properties = self._named_services[service_id]
+            self._named_services[service_id] = (name, obj, properties)
+
+        else:
+            raise ValueError('no service with id <%d>' % service_id)
 
         return
 
     def unregister_service(self, service_id):
         """ Unregister a service. """
 
-        try:
-            protocol, obj, properties = self._services.pop(service_id)
-            self.unregistered = service_id
+        if service_id in self._services:
+            self._services.pop(service_id)
 
-        except KeyError:
-            service_offer = self._get_named_service_offer_by_id(service_id)
-            name, offer   = service_offer
+        elif service_id in self._named_services:
+            self._named_services.pop(service_id)
 
-            del self._named_services[name]
-            self.unregistered = service_id
+        else:
+            raise ValueError('no service with id <%d>' % service_id)
 
+        self.unregistered = service_id
         logger.debug('service <%d> unregistered', service_id)
 
         return
@@ -289,22 +301,6 @@ class ServiceRegistry(HasTraits):
             )
 
         return name
-
-    def _get_named_service_offer_by_id(self, service_id):
-        """ Return the named service offer with the given service Id.
-
-        Raise a 'ValueError' if no such service exists.
-
-        """
-
-        for name, (sid, obj, properties) in self._named_services.items():
-            if sid == service_id:
-                service_offer = (name, (sid, obj, properties))
-                break
-        else:
-            raise ValueError('no service with id <%d>' % service_id)
-
-        return service_offer
 
     def _is_service_factory(self, protocol, obj):
         """ Is the object a factory for services supporting the protocol? """
