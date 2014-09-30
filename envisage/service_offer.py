@@ -10,6 +10,10 @@ class ServiceOffer(HasTraits):
 
     #### 'ServiceOffer' interface #############################################
 
+    # For "white pages"-style services, register and lookup by name.
+    name = Str
+
+    # For "yellow pages"-style services, register and lookup by protocol.
     # The protocol that the service provides.
     #
     # This can be an actual class or interface, or a string that can be used to

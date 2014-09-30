@@ -287,11 +287,19 @@ class CorePlugin(Plugin):
     def _register_service_offer(self, service_offer):
         """ Register a service offer. """
 
-        service_id = self.application.register_service(
-            protocol   = service_offer.protocol,
-            obj        = service_offer.factory,
-            properties = service_offer.properties
-        )
+        if len(service_offer.name) > 0:
+            service_id = self.application.register_service_by_name(
+                name       = service_offer.name,
+                obj        = service_offer.factory,
+                properties = service_offer.properties
+            )
+
+        else:
+            service_id = self.application.register_service(
+                protocol   = service_offer.protocol,
+                obj        = service_offer.factory,
+                properties = service_offer.properties
+            )
 
         return service_id
 

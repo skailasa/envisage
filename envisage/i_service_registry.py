@@ -46,6 +46,13 @@ class IServiceRegistry(Interface):
 
         """
 
+    def get_service_by_name(self, name):
+        """ Return the service with the given name.
+
+        Return None if no such service is found.
+
+        """
+
     def get_service_from_id(self, service_id):
         """ Return the service with the specified id.
 
@@ -88,6 +95,21 @@ class IServiceRegistry(Interface):
         looks like::
 
             from foo.bar import baz
+
+        Return a service Id that can be used to unregister the service and to
+        get/set any service properties.
+
+        If 'obj' does not implement the specified protocol then it is treated
+        as a 'service factory' that will be called the first time a service of
+        the appropriate type is requested. A 'service factory' is simply a
+        callable that takes the properties specified here as keyword arguments
+        and returns an object. For *really* lazy loading, the factory can also
+        be specified as a string which is used to import the callable.
+
+        """
+
+    def register_service_by_name(self, name, obj, properties=None):
+        """ Register a service by name.
 
         Return a service Id that can be used to unregister the service and to
         get/set any service properties.

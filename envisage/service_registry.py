@@ -35,6 +35,20 @@ class ServiceRegistry(HasTraits):
 
     ####  Private interface ###################################################
 
+    # The *named* services in the registry.
+    #
+    # { name : (service_id, obj, properties) }
+    #
+    # where:
+    #
+    # 'name' is the service name.
+    #
+    # 'obj' is the object that is registered (any old, Python object!).
+    #
+    # 'properties' is the arbitrary dictionary of properties that were
+    # registered with the object.
+    _named_services = Dict
+
     # The services in the registry.
     #
     # { service_id : (protocol_name, obj, properties) }
@@ -82,6 +96,33 @@ class ServiceRegistry(HasTraits):
             service = None
 
         return service
+
+    def get_service_by_name(self, name):
+        """ Return the service with the given name. """
+
+        if not name in self._named_services:
+            return None
+        
+        service_id, obj, properties = self._named_services.get(name)
+
+        # Is the registered service actually a service *factory*?
+        if callable(obj):
+            # A service factory is any callable that takes two arguments, the
+            # first is the protocol, the second is the (possibly empty)
+            # dictionary of properties that were registered with the service.
+            #
+            # If the factory is specified as a symbol path then import it.
+            if isinstance(obj, basestring):
+                obj = ImportManager().import_symbol(obj)
+
+            obj = obj(**properties)
+
+            # The resulting service object replaces the factory in the cache
+            # (i.e. the factory will not get called again unless it is
+            # unregistered first).
+            self._named_services[name] = (service_id, obj, properties)
+
+        return obj
 
     def get_service_from_id(self, service_id):
         """ Return the service with the specified id. """
@@ -155,6 +196,21 @@ class ServiceRegistry(HasTraits):
         self.registered = service_id
 
         logger.debug('service <%d> registered %s', service_id, protocol_name)
+
+        return service_id
+
+    def register_service_by_name(self, name, obj, properties=None):
+        """ Register a service by name. """
+
+        # Make sure each service gets its own properties dictionary.
+        if properties is None:
+            properties = {}
+
+        service_id = self._next_service_id()
+        self._named_services[name] = (service_id, obj, properties)
+        self.registered = service_id
+
+        logger.debug('service <%d> registered by name %s', service_id, name)
 
         return service_id
 

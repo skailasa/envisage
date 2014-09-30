@@ -348,6 +348,28 @@ class ServiceRegistryTestCase(unittest.TestCase):
 
         return
 
+    def test_should_get_service_by_name(self):
+        """ get service """
+
+        class Foo(HasTraits):
+            pass
+
+        class Bar(HasTraits):
+            pass
+        
+        # Register a couple of services.
+        foo = Foo()
+        self.service_registry.register_service_by_name('foo', foo)
+
+        bar = Bar()
+        self.service_registry.register_service_by_name('bar', bar)
+
+        # Look up one of them!
+        service = self.service_registry.get_service_by_name('foo')
+        self.assertIs(foo, service)
+
+        return
+
     def test_get_service_with_query(self):
         """ get service with query """
 

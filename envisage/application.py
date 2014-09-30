@@ -372,6 +372,15 @@ class Application(HasTraits):
 
         return service
 
+    def get_service_by_name(self, name):
+        """ Return the service with the given name.
+
+        Return None if no such service is found.
+
+        """
+
+        return self.service_registry.get_service_by_name(name)
+
     def get_service_from_id(self, service_id):
         """ Return the service with the specified id. """
 
@@ -396,6 +405,15 @@ class Application(HasTraits):
 
         service_id = self.service_registry.register_service(
             protocol, obj, properties
+        )
+
+        return service_id
+
+    def register_service_by_name(self, name, obj, properties=None):
+        """ Register a service by name. """
+
+        service_id = self.service_registry.register_service_by_name(
+            name, obj, properties
         )
 
         return service_id
