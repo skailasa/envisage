@@ -102,7 +102,7 @@ class ServiceRegistry(HasTraits):
 
         if not name in self._named_services:
             return None
-        
+
         service_id, obj, properties = self._named_services.get(name)
 
         # Is the registered service actually a service *factory*?
@@ -236,7 +236,15 @@ class ServiceRegistry(HasTraits):
             logger.debug('service <%d> unregistered', service_id)
 
         except KeyError:
-            raise ValueError('no service with id <%d>' % service_id)
+            for name, (sid, obj, properties) in self._named_services.items():
+                if sid == service_id:
+                    break
+
+            else:
+                raise ValueError('no service with id <%d>' % service_id)
+
+            del self._named_services[name]
+            self.unregistered = service_id
 
         return
 
