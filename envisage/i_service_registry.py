@@ -18,8 +18,8 @@ class IServiceRegistry(Interface):
     any Python object and do not have to inherit from any Envisage class or even
     implement any particular interface!
 
-    There are two different ways to publish your services, depending on how
-    you would want clients to use them:-
+    The service registry provides two different ways to publish your services,
+    depending on how you would want clients to use them:-
 
     1) The 'Yellow Pages' (IServiceRegistry.register_service).
 
@@ -56,7 +56,7 @@ class IServiceRegistry(Interface):
     of the specific person that you want to contact, and so you can simply
     look it up. This is just a flat (think dictionary) namespace, and so it is
     common to use names such as 'enthought/event_manager' to emulate a naming
-    hierarchy.
+    hierarchy (and to prevent name clashes!).
 
     Use the 'White Pages' style (via the 'register_service_by_name' method) if
     you have a single, well-known object that provides a particular service.
@@ -96,17 +96,17 @@ class IServiceRegistry(Interface):
 
         """
 
-    def get_service_by_name(self, name):
-        """ Return the service with the given name.
-
-        Return None if no such service is found.
-
-        """
-
     def get_service_by_id(self, service_id):
         """ Return the service with the specified id.
 
         If no such service exists a 'ValueError' exception is raised.
+
+        """
+
+    def get_service_by_name(self, name):
+        """ Return the service with the given name.
+
+        Return None if no such service is found.
 
         """
 
