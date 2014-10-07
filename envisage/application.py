@@ -10,6 +10,7 @@ from apptools.preferences.api import IPreferences, ScopedPreferences
 from apptools.preferences.api import set_default_preferences
 from traits.api import Delegate, Event, HasTraits, Instance, Str
 from traits.api import VetoableEvent, provides
+from traits.util.deprecated import deprecated
 
 # Local imports.
 from i_application import IApplication
@@ -372,6 +373,11 @@ class Application(HasTraits):
 
         return service
 
+    def get_service_by_id(self, service_id):
+        """ Return the service with the specified id. """
+
+        return self.service_registry.get_service_from_id(service_id)
+
     def get_service_by_name(self, name):
         """ Return the service with the given name.
 
@@ -381,6 +387,7 @@ class Application(HasTraits):
 
         return self.service_registry.get_service_by_name(name)
 
+    @deprecated('use "get_service_by_id"')
     def get_service_from_id(self, service_id):
         """ Return the service with the specified id. """
 
