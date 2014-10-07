@@ -97,6 +97,20 @@ class ServiceRegistry(HasTraits):
 
         return service
 
+    def get_service_by_id(self, service_id):
+        """ Return the service with the specified id. """
+
+        if service_id in self._services:
+            protocol, obj, properties = self._services[service_id]
+
+        elif service_id in self._named_services:
+            name, obj, properties = self._named_services[service_id]
+
+        else:
+            raise ValueError('no service with id <%d>' % service_id)
+
+        return obj
+
     def get_service_by_name(self, name):
         """ Return the service with the given name. """
 
@@ -117,20 +131,6 @@ class ServiceRegistry(HasTraits):
             # (i.e. the factory will not get called again unless it is
             # unregistered first).
             self._named_services[service_id] = (name, obj, properties)
-
-        return obj
-
-    def get_service_by_id(self, service_id):
-        """ Return the service with the specified id. """
-
-        if service_id in self._services:
-            protocol, obj, properties = self._services[service_id]
-
-        elif service_id in self._named_services:
-            name, obj, properties = self._named_services[service_id]
-
-        else:
-            raise ValueError('no service with id <%d>' % service_id)
 
         return obj
 
