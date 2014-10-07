@@ -5,8 +5,10 @@
 import logging
 
 # Enthought library imports.
-from traits.api import Dict, Event, HasTraits, Int, Undefined, provides, \
-    Interface
+from traits.api import (
+    Dict, Event, HasTraits, Int, Interface, provides, Undefined
+)
+from traits.util.deprecated import deprecated
 
 # Local imports.
 from i_service_registry import IServiceRegistry
@@ -28,14 +30,14 @@ class ServiceRegistry(HasTraits):
     ####  IServiceRegistry interface ##########################################
 
     # An event that is fired when a service is registered.
-    registered = Event
+    registered = Event(Int)
 
     # An event that is fired when a service is unregistered.
-    unregistered = Event
+    unregistered = Event(Int)
 
     ####  Private interface ###################################################
 
-    # Service registered by *name*.
+    # Services registered by *name* (aka the 'White Pages').
     #
     # { service_id : (name, obj, properties) }
     #
@@ -49,7 +51,7 @@ class ServiceRegistry(HasTraits):
     # registered with the object.
     _named_services = Dict
 
-    # Services registered by *protocol*.
+    # Services registered by *protocol* (aka the 'Yellow Pages').
     #
     # { service_id : (protocol_name, obj, properties) }
     #
@@ -73,11 +75,7 @@ class ServiceRegistry(HasTraits):
     ###########################################################################
 
     def get_required_service(self, protocol, query='', minimize='',maximize=''):
-        """ Return the service that matches the specified query.
-
-        Raise a 'NoSuchServiceError' exception if no such service exists.
-
-        """
+        """ Return the first service that matches the specified query. """
 
         service = self.get_service(protocol, query, minimize, maximize)
         if service is None:
@@ -86,7 +84,9 @@ class ServiceRegistry(HasTraits):
         return service
 
     def get_service(self, protocol, query='', minimize='', maximize=''):
-        """ Return at most one service that matches the specified query. """
+        """ Return the first service service that matches the specified query.
+
+        """
 
         services = self.get_services(protocol, query, minimize, maximize)
         if len(services) > 0:
@@ -100,7 +100,8 @@ class ServiceRegistry(HasTraits):
     def get_service_by_name(self, name):
         """ Return the service with the given name. """
 
-        for service_id, (offer_name, obj, properties) in self._named_services.iteritems():
+        for service_id, (offer_name, obj, properties) in \
+            self._named_services.iteritems():
             if offer_name == name:
                 break
 
@@ -108,19 +109,9 @@ class ServiceRegistry(HasTraits):
             return None
 
         # Is the registered service actually a service *factory*?
-        #
-        # fixme: We should have had an explicit way rto register a factory.
-        # This works *unless* you want to register an instance as the actual
-        # service object that happens to be callable (i.e. implements __call__).
-        if callable(obj):
-            # A service factory is any callable that takes the (possibly empty)
-            # dictionary of properties as keyword arguments.
-            #
-            # If the factory is specified as a symbol path then import it.
-            if isinstance(obj, basestring):
-                obj = ImportManager().import_symbol(obj)
-
-            obj = obj(**properties)
+        if self._is_service_factory(obj):
+            # Use the factory to create the actiual service object.
+            obj = self._get_object_from_factory(obj, properties)
 
             # The resulting service object replaces the factory in the cache
             # (i.e. the factory will not get called again unless it is
@@ -143,7 +134,7 @@ class ServiceRegistry(HasTraits):
 
         return obj
 
-    # Deprecated: Use 'get_service_by_id'
+    @deprecated('use "get_service_by_id"')
     def get_service_from_id(self, service_id):
         """ Return the service with the specified id. """
 
@@ -153,7 +144,8 @@ class ServiceRegistry(HasTraits):
         """ Return all services that match the specified query. """
 
         services = []
-        for service_id, (protocol_name, obj, properties) in self._services.items():
+        for service_id, (protocol_name, obj, properties) \
+            in self._services.items():
             if self._get_protocol_name(protocol) == protocol_name:
                 # If the protocol is a string then we need to import it!
                 if isinstance(protocol, basestring):
@@ -195,7 +187,7 @@ class ServiceRegistry(HasTraits):
 
         else:
             raise ValueError('no service with id <%d>' % service_id)
-            
+
         return properties.copy()
 
     def register_service(self, protocol, obj, properties=None):
@@ -247,7 +239,7 @@ class ServiceRegistry(HasTraits):
         return
 
     def unregister_service(self, service_id):
-        """ Unregister a service. """
+        """ Unregister the service with the given Id. """
 
         if service_id in self._services:
             self._services.pop(service_id)
@@ -292,6 +284,18 @@ class ServiceRegistry(HasTraits):
 
         return result
 
+    def _get_object_from_factory(self, factory, properties):
+        """ Use the given factory to create the actual service object. """
+
+        # A service factory is any callable that takes the (possibly empty)
+        # dictionary of properties as *keyword* arguments.
+        #
+        # If the factory is specified as a symbol path then import it.
+        if isinstance(factory, basestring):
+            factory = ImportManager().import_symbol(factory)
+
+        return factory(**properties)
+
     def _get_protocol_name(self, protocol_or_name):
         """ Returns the full class name for a protocol. """
 
@@ -305,14 +309,30 @@ class ServiceRegistry(HasTraits):
 
         return name
 
-    def _is_service_factory(self, protocol, obj):
-        """ Is the object a factory for services supporting the protocol? """
+    def _is_service_factory(self, obj, protocol=None):
+        """ Is the object actually a *factory* for the service object? """
 
-        # fixme: Should we have a formal notion of service factory with an
-        # appropriate API, or is this good enough? An API might have lifecycle
-        # methods to both create and destroy the service?!?
+        # fixme: We should have had a formal notion of service factory with an
+        # appropriate API so that we can *definitely* tell whether or not an
+        # object is a factory!
+        #
+        # Instead we make the following 'best guesses':-
+        #
+        # For objects registered by protocol, we look to see if the object
+        # is an instance of the protocol, and if *not* assume it is a factory
+        # for one that does. This is not too bad, but...
+        #
+        # For objects registered by name, we don't even have a protocol to
+        # check for, so we look to see if the object is callable and, if it is,
+        # assume it is a factory. Of course this will break if your actual
+        # service object is callable (i.e. implements __call__)!
+        if protocol is not None:
+            is_service_factory = not isinstance(obj, protocol)
 
-        return not isinstance(obj, protocol)
+        else:
+            is_service_factory = callable(obj)
+
+        return is_service_factory
 
     def _next_service_id(self):
         """ Returns the next service ID. """
@@ -327,15 +347,9 @@ class ServiceRegistry(HasTraits):
         """ If 'obj' is a factory then use it to create the actual service. """
 
         # Is the registered service actually a service *factory*?
-        if self._is_service_factory(protocol, obj):
-            # A service factory is any callable that takes the (possibly empty)
-            # dictionary of properties as keyword arguments.
-            #
-            # If the factory is specified as a symbol path then import it.
-            if isinstance(obj, basestring):
-                obj = ImportManager().import_symbol(obj)
-
-            obj = obj(**properties)
+        if self._is_service_factory(obj, protocol):
+            # Use the factory to create the actiual service object.
+            obj = self._get_object_from_factory(obj, properties)
 
             # The resulting service object replaces the factory in the cache
             # (i.e. the factory will not get called again unless it is
