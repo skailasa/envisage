@@ -3,6 +3,7 @@
 
 # Enthought library imports.
 from traits.api import Event, Int, Interface
+from traits.util.deprecated import deprecated
 
 
 class IServiceRegistry(Interface):
@@ -110,7 +111,7 @@ class IServiceRegistry(Interface):
 
         """
 
-    # Deprecated: Use 'get_service_by_id'
+    @deprecated('use "get_service_by_id"')
     def get_service_from_id(self, service_id):
         """ Return the service with the specified id.
 
